@@ -1,0 +1,40 @@
+name: build
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descomprimir el codigo
+        run: for f in *.zip; do unzip -q -o "$f"; done
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.9" }
+      - name: APK y AAB
+        run: gradle -p veronica/android :app:assembleDebug :app:bundleRelease --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veronica-android
+          path: |
+            veronica/android/app/build/outputs/apk/debug/*.apk
+            veronica/android/app/build/outputs/bundle/release/*.aab
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descomprimir el codigo
+        shell: pwsh
+        run: Get-ChildItem *.zip | ForEach-Object { Expand-Archive -Path $_.FullName -DestinationPath . -Force }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "8.0.x" }
+      - name: EXE unico
+        run: >
+          dotnet publish veronica/windows/Veronica/Veronica.csproj -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o out
+      - uses: actions/upload-artifact@v4
+        with: { name: veronica-windows, path: out/Veronica.exe }
